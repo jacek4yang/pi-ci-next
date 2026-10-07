@@ -6,7 +6,7 @@
 
 import { WatchRegistry, waitForWatch } from "../src/core/watches.ts";
 import { buildFailureDigest } from "../src/core/digest.ts";
-import type { GithubService } from "../src/core/types.ts";
+import type { GithubService } from "../src/core/github.ts";
 
 let clock = 1_700_000_000_000;
 const now = () => ++clock;
