@@ -33,7 +33,7 @@ const assertionLog = [
 function digestService(logByJob: Record<number, string>): GithubService {
   return {
     read: async () => ({ projection: "", snapshotId: "", outcome: "network-fetch", apiCalls: 0 }),
-    request: async (opts) => {
+    request: async (opts: { path: string; method?: string }) => {
       const path = opts.path;
       if (path.includes("/jobs?per_page")) {
         return {
