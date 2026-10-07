@@ -103,7 +103,11 @@ export async function snapshotForTarget(
 export class WatchRegistry {
   private watches = new Map<string, CiWatch>();
 
-  constructor(private readonly now: () => number = Date.now) {}
+  private readonly now: () => number;
+
+  constructor(now: () => number = Date.now) {
+    this.now = now;
+  }
 
   create(target: CiTarget, selector: RunSelector, deadline?: number): CiWatch {
     if (this.active().length >= Q.maxActiveWatches) {
