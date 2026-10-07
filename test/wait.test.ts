@@ -19,7 +19,7 @@ function progressingService(
   let jobFetches = 0;
   const service: GithubService = {
     read: async () => ({ projection: "", snapshotId: "", outcome: "network-fetch", apiCalls: 0 }),
-    request: async (opts) => {
+    request: async (opts: { path: string; method?: string }) => {
       totalRequests++;
       const path = opts.path;
       if (path.startsWith("/repos/") && path.includes("/pulls/")) {
