@@ -24,7 +24,7 @@ function makeService() {
   let runSeq = 0;
   const service: GithubService = {
     read: async () => ({ projection: "", snapshotId: "", outcome: "network-fetch", apiCalls: 0 }),
-    request: async (opts) => {
+    request: async (opts: { path: string; method?: string; etag?: string }) => {
       requests++;
       const path = opts.path;
       if (faultMode && requests % 7 === 0) {
