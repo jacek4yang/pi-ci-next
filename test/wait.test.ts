@@ -5,7 +5,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { WatchRegistry, waitForWatch, nextWatchId } from "../src/core/watches.ts";
-import type { GithubService } from "../src/core/types.ts";
+import type { GithubService } from "../src/core/github.ts";
 
 const NO_SLEEP = () => Promise.resolve();
 
