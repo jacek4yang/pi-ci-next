@@ -159,6 +159,39 @@ test("[G] no service → bounded CI_SERVICE_UNAVAILABLE error, not a crash", asy
   h.cleanup();
 });
 
+test("[I7] CI mutations flow through the shared mutation engine (journaled), never raw POSTs", async () => {
+  const mutations: unknown[] = [];
+  const base = makeService(["success"]);
+  const service: GithubService = {
+    ...base,
+    request: async (opts) => {
+      // Any direct POST to a CI endpoint bypassing the journal is a violation.
+      if (opts.method === "POST" && opts.path.includes("/actions/")) {
+        throw new Error("I7 VIOLATION: direct unjournaled CI POST");
+      }
+      return base.request(opts);
+    },
+    mutate: async (intent) => {
+      mutations.push(intent);
+      const result = await base.mutate(intent);
+      return { ...result, record: { operationId: "op_i7" } };
+    },
+  };
+  const h = harness(service);
+  const result = await h.tool.execute(undefined, {
+    action: "cancel",
+    repository: "o/r",
+    run_id: 9001,
+  });
+  assert.doesNotMatch(result.content[0]!.text, /I7 VIOLATION/);
+  assert.match(result.content[0]!.text, /cancel completed/);
+  assert.equal(mutations.length, 1, "exactly one journaled mutation intent");
+  const intent = mutations[0] as { operation: string; fields: { ciPath?: string } };
+  assert.equal(intent.operation, "ci_control");
+  assert.match(intent.fields.ciPath ?? "", /\/cancel$/);
+  h.cleanup();
+});
+
 test("[G] dispatch without repository/workflow is a bounded error", async () => {
   const h = harness(makeService(["success"]));
   const result = await h.tool.execute(undefined, { action: "dispatch" });

@@ -345,34 +345,61 @@ export default function piCiNext(pi: ExtensionAPI) {
         return respond(rows.length > 0 ? rows.join("\n") : "(no artifacts)", false);
       }
       case "rerun_failed":
-      case "cancel": {
-        // CI mutations via shared mutation truth (§31); policy gates the call.
+      case "cancel":
+      case "dispatch": {
+        // CI mutations via the shared durable mutation engine (§31/I7):
+        // journaled before the request, never blindly retried, policy
+        // gates the call upstream via the tool_call event.
         const svc = await service();
         const repository = p.repository as string;
-        const runId = p.run_id as number;
-        if (!repository || typeof runId !== "number")
-          return respond("TARGET_INVALID: requires repository and run_id", true);
-        const path =
-          action === "cancel"
-            ? `/repos/${repository}/actions/runs/${runId}/cancel`
-            : `/repos/${repository}/actions/runs/${runId}/rerun-failed-jobs`;
-        const outcome = await svc.mutate(
-          {
-            operation: "add_labels",
-            repository,
-            fields: { number: runId, _ciAction: action, _ciPath: path },
-          } as never,
-          { signal, cancelled: () => signal?.aborted === true },
-        );
-        // The generic mutation engine records durable truth; the actual
-        // endpoint is executed through its request layer via the label
-        // payload trick is NOT used — instead execute directly:
-        void outcome;
-        const direct = await svc.request({ path, method: "POST", allowRetry: false, signal });
-        return respond(
-          `${action} dispatched (HTTP ${direct.status}); durable outcome recorded by pi-github-next journal`,
-          false,
-        );
+        if (!repository) return respond("TARGET_INVALID: requires repository", true);
+        let ciPath: string;
+        const fields: Record<string, string | number | string[] | undefined> = { ciAction: action };
+        if (action === "dispatch") {
+          const workflowRef = p.workflow_ref as string;
+          if (!workflowRef) return respond("TARGET_INVALID: dispatch requires workflow_ref", true);
+          ciPath = `/repos/${repository}/actions/workflows/${workflowRef}/dispatches`;
+          fields.ciPath = ciPath;
+          fields.ref = typeof p.ref === "string" ? p.ref : "main";
+          fields.inputsJson = JSON.stringify((p.inputs as Record<string, string>) ?? {});
+        } else {
+          const runId = p.run_id as number;
+          if (typeof runId !== "number") return respond("TARGET_INVALID: requires run_id", true);
+          ciPath =
+            action === "cancel"
+              ? `/repos/${repository}/actions/runs/${runId}/cancel`
+              : `/repos/${repository}/actions/runs/${runId}/rerun-failed-jobs`;
+          fields.ciPath = ciPath;
+        }
+        const outcome = await svc.mutate({ operation: "ci_control", repository, fields } as never, {
+          signal,
+          cancelled: () => signal?.aborted === true,
+        });
+        if (outcome.state === "completed") {
+          return respond(
+            `${action} completed (durable outcome ${outcome.record.operationId})`,
+            false,
+            {
+              state: outcome.state,
+              resultRef: outcome.resultRef,
+            },
+          );
+        }
+        if (outcome.state === "unknown") {
+          return respond(
+            [
+              "MUTATION OUTCOME UNKNOWN",
+              `reason: ${outcome.reason ?? "network failure after possible commit"}`,
+              `operation id: ${outcome.record.operationId} (kept in journal for reconciliation)`,
+              "do NOT blindly retry; verify on GitHub first",
+            ].join(String.fromCharCode(10)),
+            true,
+            { state: "unknown", operationId: outcome.record.operationId },
+          );
+        }
+        return respond(`${action} ${outcome.state}: ${outcome.reason ?? "see journal"}`, true, {
+          state: outcome.state,
+        });
       }
       case "dispatch": {
         const svc = await service();
