@@ -19,7 +19,7 @@ function makeService(
   let jobLogCalls = 0;
   const service: GithubService = {
     read: async () => ({ projection: "", snapshotId: "", outcome: "network-fetch", apiCalls: 0 }),
-    request: async (opts) => {
+    request: async (opts: { path: string; method?: string; etag?: string }) => {
       const path = opts.path;
       if (path.includes("/actions/runs?head_sha=")) {
         const state = pollResult[Math.min(polls, pollResult.length - 1)]!;

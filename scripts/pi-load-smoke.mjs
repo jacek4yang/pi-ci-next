@@ -48,10 +48,7 @@ try {
     probe.commands?.includes("ci-next"),
     `ci-next command registered (commands: ${probe.commands?.join(", ")})`,
   );
-  assert.ok(
-    probe.tools?.includes("ci"),
-    `tool 'ci' missing; got ${JSON.stringify(probe.tools)}`,
-  );
+  assert.ok(probe.tools?.includes("ci"), `tool 'ci' missing; got ${JSON.stringify(probe.tools)}`);
   console.log(
     `pi-load-smoke OK: /ci-next present, ci tool registered (${probe.tools?.length ?? 0} tools total)`,
   );
