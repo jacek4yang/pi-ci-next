@@ -99,7 +99,7 @@ test("[I9] digest is bounded: failed-job count capped at 5", async () => {
   let logIndex = 0;
   const service: GithubService = {
     read: async () => ({ projection: "", snapshotId: "", outcome: "network-fetch", apiCalls: 0 }),
-    request: async (opts) => {
+    request: async (opts: { path: string; method?: string }) => {
       if (opts.path.includes("/jobs?per_page")) {
         return {
           status: 200,
